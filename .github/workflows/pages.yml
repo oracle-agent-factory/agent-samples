@@ -36,15 +36,24 @@ jobs:
           AGENT_SAMPLES_RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/latest
         run: python scripts/generate_docs.py
 
+      - name: Upload generated documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-agent-pages-${{ github.sha }}
+          path: docs/
+
       - name: Configure GitHub Pages
+        if: github.event.repository.visibility == 'public' || vars.ENABLE_GITHUB_PAGES == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: github.event.repository.visibility == 'public' || vars.ENABLE_GITHUB_PAGES == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
 
   deploy:
+    if: github.event.repository.visibility == 'public' || vars.ENABLE_GITHUB_PAGES == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

@@ -186,7 +186,9 @@ python -m http.server 8000 --directory docs
 
 Open `http://localhost:8000`. The site includes a catalog, a detailed page for every agent, a tested chat flow, direct release downloads, source links, and `agents.json` for machine-readable discovery.
 
-The Pages workflow regenerates and deploys the site on every push to `main`. In repository settings, set **Pages → Build and deployment → Source** to **GitHub Actions** once.
+The Pages workflow regenerates and validates the site on every push to `main` and always uploads `rendered-agent-pages-<commit>` as an Actions artifact. Public repositories deploy automatically.
+
+For a private repository, the organization plan must support GitHub Pages. Enable Pages with **Build and deployment → Source → GitHub Actions**, then create the repository variable `ENABLE_GITHUB_PAGES=true`. Until then, deployment is skipped without hiding documentation-build failures.
 
 ## Validate a contribution
 
