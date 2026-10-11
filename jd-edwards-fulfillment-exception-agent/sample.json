@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0",
+  "slug": "jd-edwards-fulfillment-exception-agent",
+  "title": "JD Edwards Fulfillment Exception Agent",
+  "summary": "Read-only fulfillment exception analysis using live sales-order, inventory, inbound-supply, item, and address-book evidence.",
+  "category": "Supply Chain",
+  "version": "4",
+  "platform": {"product": "Oracle AI Database Private Agent Factory", "applicationVersion": "26.7.0.0.0"},
+  "connectionContext": "The REST source statically supplies JPS920, role *ALL, and device paf-jde-agent. Basic Auth remains environment-local.",
+  "memory": {"mode": "none", "crossThread": false, "description": "Stateless grounded analysis; Agent Memory is not required."},
+  "capabilities": [
+    "Finds bounded sales-order backorder candidates and cross-checks line and header status.",
+    "Compares indicative inventory across branches and credible inbound purchase-order supply.",
+    "Produces an approval-ready recovery recommendation without changing JDE."
+  ],
+  "prerequisites": [
+    "Private Agent Factory 26.7-compatible environment and an available LLM connection.",
+    "Network access from Agent Factory to a JD Edwards EnterpriseOne AIS server.",
+    "JDE Basic Auth user with read access to F4211, F4201, F41021, F4311, F4101, and F0101."
+  ],
+  "tools": [
+    {"name": "F4211", "method": "GET", "path": "/jderest/v2/dataservice/table/F4211", "purpose": "Find sales-order lines and fulfillment exceptions."},
+    {"name": "F4201", "method": "GET", "path": "/jderest/v2/dataservice/table/F4201", "purpose": "Get order header, customer, dates, and hold status."},
+    {"name": "F41021", "method": "GET", "path": "/jderest/v2/dataservice/table/F41021", "purpose": "Check item inventory by branch and location."},
+    {"name": "F4311", "method": "GET", "path": "/jderest/v2/dataservice/table/F4311", "purpose": "Find inbound purchase-order supply for an item."},
+    {"name": "F4101", "method": "GET", "path": "/jderest/v2/dataservice/table/F4101", "purpose": "Get item identity and descriptions."},
+    {"name": "F0101", "method": "GET", "path": "/jderest/v2/dataservice/table/F0101", "purpose": "Resolve customer or supplier address-book details."}
+  ],
+  "safetyControls": [
+    "The OpenAPI definition exposes GET operations only.",
+    "Queries are bounded to 50 rows unless the user asks for more.",
+    "Recommendations distinguish evidence, assumptions, verification, approval, and execution.",
+    "Live analyses end with: JDE changes made: none (read-only analysis)."
+  ],
+  "setup": [
+    "Create a REST API data source from assets/jde-fulfillment-openapi.json; verify the AIS URL and configure JDE Basic Auth.",
+    "Download and import the release PAF using the repository archive passphrase.",
+    "Rebind the REST API Tools node to the new environment-local source.",
+    "Select an available model, inspect tool calls, test the demo, and publish only after validating target-environment results."
+  ],
+  "demo": {
+    "sessions": [
+      {"title": "Grounded exception analysis", "steps": [
+        {"speaker": "User", "text": "Find up to five sales order lines with backordered quantity and explain which one is the best recovery candidate."},
+        {"speaker": "User", "text": "Investigate sales order <number>. Show the exact line evidence, inventory by branch, credible inbound supply, and rank recovery options."},
+        {"speaker": "User", "text": "For item <item>, compare indicative availability across branches and identify relevant open inbound purchase-order lines. Do not make any JDE changes."}
+      ]}
+    ],
+    "expectedOutcomes": [
+      "Uses fully qualified JDE fields and does not invent business data.",
+      "Calls calculated balances indicative availability unless ATP is proven.",
+      "States what a human must verify or approve and performs no write-back."
+    ]
+  },
+  "validation": {"date": "2026-10-11", "environment": "JPS920 sample data", "status": "Passed live tool-call validation", "notes": ["Exact orders and balances vary with the target JDE environment."]},
+  "artifacts": {"workflow": "workflow.json", "archiveMetadata": "archive-metadata.json", "instructions": "assets/agent-instructions.md", "openapi": "assets/jde-fulfillment-openapi.json", "releaseAsset": "jd-edwards-fulfillment-exception-agent.paf"}
+}

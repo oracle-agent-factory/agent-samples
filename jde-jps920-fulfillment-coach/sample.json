@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0",
+  "slug": "jde-jps920-fulfillment-coach",
+  "title": "JDE JPS920 Fulfillment Coach",
+  "summary": "End-user-oriented read-only fulfillment coach with builder-managed JPS920 context and implicit learning from incremental corrections.",
+  "category": "Supply Chain",
+  "version": "8",
+  "platform": {"product": "Oracle AI Database Private Agent Factory", "applicationVersion": "26.7.0.0.0"},
+  "connectionContext": "The builder fixes environment JPS920, role *ALL, and device paf-jde-agent in the REST source. End users are never asked for technical connection headers.",
+  "memory": {"mode": "implicit", "crossThread": true, "description": "Realistic one-at-a-time corrections are captured during normal work. A later analysis includes an Applied from your prior feedback audit section for relevant recalled rules."},
+  "capabilities": [
+    "Keeps technical connection settings out of the end-user conversation.",
+    "Learns priority, inactive-status, donor-reserve, and approval corrections incrementally.",
+    "Applies relevant feedback across sessions and explains how it affected the answer.",
+    "Maintains a read-only recommendation and explicit human-approval boundary."
+  ],
+  "prerequisites": [
+    "Private Agent Factory 26.7-compatible environment with Agent Memory and cross-thread sharing enabled.",
+    "Network access to the intended JPS920 AIS server plus an available LLM connection.",
+    "JDE Basic Auth user with read access to F4211, F4201, F41021, F4311, F4101, and F0101."
+  ],
+  "tools": [
+    {"name": "F4211", "method": "GET", "path": "/jderest/v2/dataservice/table/F4211", "purpose": "Find sales-order lines and fulfillment exceptions."},
+    {"name": "F4201", "method": "GET", "path": "/jderest/v2/dataservice/table/F4201", "purpose": "Get order header, customer, dates, and hold status."},
+    {"name": "F41021", "method": "GET", "path": "/jderest/v2/dataservice/table/F41021", "purpose": "Check item inventory by branch and location."},
+    {"name": "F4311", "method": "GET", "path": "/jderest/v2/dataservice/table/F4311", "purpose": "Find inbound purchase-order supply for an item."},
+    {"name": "F4101", "method": "GET", "path": "/jderest/v2/dataservice/table/F4101", "purpose": "Get item identity and descriptions."},
+    {"name": "F0101", "method": "GET", "path": "/jderest/v2/dataservice/table/F0101", "purpose": "Resolve customer or supplier address-book details."}
+  ],
+  "safetyControls": [
+    "The OpenAPI definition exposes GET operations only and fixes the builder-managed headers.",
+    "Status 900 is treated as inactive after the user correction.",
+    "Cross-branch donors must remain at or above the learned 1,000-unit floor.",
+    "The agent cannot claim to release or change JDE and requires explicit approval."
+  ],
+  "setup": [
+    "Create a REST source from assets/jde-fulfillment-openapi.json, verify its JPS920 AIS URL, and configure Basic Auth.",
+    "Download and import the release PAF, then rebind its REST API Tools node and select a model.",
+    "Enable Agent Memory and cross-thread sharing for the same user.",
+    "Delete prior playground memories for the test user and run the two-session demo."
+  ],
+  "demo": {
+    "sessions": [
+      {"title": "Session 1 — teach through ordinary feedback", "steps": [
+        {"speaker": "User", "text": "Can you review today's backorders and tell me what we should tackle first?"},
+        {"speaker": "User", "text": "We do not prioritize by quantity. Start with the earliest requested line that is still active."},
+        {"speaker": "User", "text": "Good. Make the status rule explicit: any line with last status 900 is inactive and stays out of the fulfillment queue."},
+        {"speaker": "User", "text": "For cross-branch recovery, do not recommend a donor if its indicative balance would fall below 1,000 units after the move. Show the arithmetic."},
+        {"speaker": "User", "text": "One more thing: anything that changes JDE needs my approval. Keep your recommendations read-only until then."}
+      ]},
+      {"title": "Session 2 — apply learned rules", "steps": [
+        {"speaker": "User", "text": "Can you review today's backorders and tell me what we should tackle first? If the local branch cannot cover it, include the best cross-branch fallback and show the numbers."},
+        {"speaker": "User", "text": "Assuming those checks pass, should the team release it?"}
+      ]}
+    ],
+    "expectedOutcomes": [
+      "The agent connects without asking for environment, role, device, or credentials.",
+      "The earliest requested active line wins; status-900 lines stay out.",
+      "Ineligible donors are labeled with explicit post-transfer arithmetic.",
+      "Applied from your prior feedback lists relevant business rules without exposing memory internals.",
+      "The follow-up preserves the approval and authorized-execution boundary."
+    ]
+  },
+  "validation": {"date": "2026-10-11", "environment": "JPS920 sample data, clean memory then two chats", "status": "Passed live cross-session validation", "notes": ["Memory retrieval is relevance-based; the audit section reports only feedback actually applied in that turn."]},
+  "artifacts": {"workflow": "workflow.json", "archiveMetadata": "archive-metadata.json", "instructions": "assets/agent-instructions.md", "openapi": "assets/jde-fulfillment-openapi.json", "releaseAsset": "jde-jps920-fulfillment-coach.paf"}
+}

@@ -1,0 +1,15 @@
+{
+  "applicationVersion": "26.7.0.0.0",
+  "exportedAt": "20261011_190459",
+  "encrypted": true,
+  "contains": {
+    "customFlows": true,
+    "modelDetails": false,
+    "dbDataSources": false,
+    "selectAiDetails": false,
+    "mcpServers": false,
+    "restApiTools": false
+  },
+  "count": 1,
+  "flowScope": "selected"
+}

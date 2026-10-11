@@ -1,0 +1,461 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "JD Edwards Fulfillment Intelligence - User Context",
+    "version": "1.1.0",
+    "description": "Read-only JD Edwards EnterpriseOne fulfillment queries. JDE environment, role, and device headers must be supplied by the caller from the current user context."
+  },
+  "servers": [
+    {
+      "url": "https://jde-studio.oracleagentfactory.com"
+    }
+  ],
+  "security": [
+    {
+      "basicAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "JD Edwards EnterpriseOne application user credentials."
+      }
+    },
+    "parameters": {
+      "environment": {
+        "name": "jde-AIS-Auth-Environment",
+        "in": "header",
+        "required": true,
+        "description": "Required JDE execution environment. Supply the user-specific value at runtime.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "role": {
+        "name": "jde-AIS-Auth-Role",
+        "in": "header",
+        "required": true,
+        "description": "Required JDE role. Supply the user-specific value at runtime.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "device": {
+        "name": "jde-AIS-Auth-Device",
+        "in": "header",
+        "required": true,
+        "description": "Required JDE device identifier. Supply the user-specific value at runtime.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "fields": {
+        "name": "$field",
+        "in": "query",
+        "required": false,
+        "description": "Fields to return, using the fully qualified JDE alias, for example F4211.DOCO. Repeat for multiple fields.",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "filters": {
+        "name": "$filter",
+        "in": "query",
+        "required": false,
+        "description": "JDE filters in FIELD OPERATOR VALUE form. Allowed operators: EQ, NE, STARTSWITH, ENDSWITH, CONTAINS, LT, LE, GT, GE. Repeat for multiple filters.",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "filterType": {
+        "name": "$filterType",
+        "in": "query",
+        "required": false,
+        "description": "Whether all or any filters must match. Use MATCH_ALL unless the user explicitly needs alternatives.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "MATCH_ALL",
+            "MATCH_ANY"
+          ],
+          "default": "MATCH_ALL"
+        }
+      },
+      "limit": {
+        "name": "$limit",
+        "in": "query",
+        "required": false,
+        "description": "Maximum records to return. Keep this at 100 or fewer unless the user explicitly requests a larger result.",
+        "schema": {
+          "type": "string",
+          "default": "50"
+        }
+      },
+      "sort": {
+        "name": "$sort",
+        "in": "query",
+        "required": false,
+        "description": "Sort fields prefixed with + for ascending or - for descending. Repeat for multiple sorts.",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "outputType": {
+        "name": "$outputType",
+        "in": "query",
+        "required": false,
+        "description": "AIS response format. Use GRID_DATA.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "GRID_DATA"
+          ],
+          "default": "GRID_DATA"
+        }
+      }
+    },
+    "responses": {
+      "queryResponse": {
+        "description": "JDE AIS grid data response.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "errorResponse": {
+        "description": "JDE AIS request or authorization error.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Fulfillment",
+      "description": "Read-only JDE fulfillment investigation tools."
+    }
+  ],
+  "paths": {
+    "/jderest/v2/dataservice/table/F4211": {
+      "get": {
+        "tags": [
+          "Fulfillment"
+        ],
+        "summary": "Find sales order lines and fulfillment exceptions",
+        "description": "Query F4211 Sales Order Detail. Useful aliases include KCOO, DOCO, DCTO, LNID, MCU, AN8, SHAN, ITM, LITM, DSC1, UORG, SOQS, SOBK, SOCN, NXTR, LTTR, TRDJ, DRQJ, PDDJ, UPRC, and AEXP. Always select only needed fields and use bounded filters and limits.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/environment"
+          },
+          {
+            "$ref": "#/components/parameters/role"
+          },
+          {
+            "$ref": "#/components/parameters/device"
+          },
+          {
+            "$ref": "#/components/parameters/fields"
+          },
+          {
+            "$ref": "#/components/parameters/filters"
+          },
+          {
+            "$ref": "#/components/parameters/filterType"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          },
+          {
+            "$ref": "#/components/parameters/outputType"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/queryResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        }
+      }
+    },
+    "/jderest/v2/dataservice/table/F4201": {
+      "get": {
+        "tags": [
+          "Fulfillment"
+        ],
+        "summary": "Get sales order header, customer, dates, and hold status",
+        "description": "Query F4201 Sales Order Header for a known company, order number, and order type. Useful aliases include KCOO, DOCO, DCTO, AN8, SHAN, MCU, TRDJ, DRQJ, CNDJ, HOLD, NXTR, and LTTR.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/environment"
+          },
+          {
+            "$ref": "#/components/parameters/role"
+          },
+          {
+            "$ref": "#/components/parameters/device"
+          },
+          {
+            "$ref": "#/components/parameters/fields"
+          },
+          {
+            "$ref": "#/components/parameters/filters"
+          },
+          {
+            "$ref": "#/components/parameters/filterType"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          },
+          {
+            "$ref": "#/components/parameters/outputType"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/queryResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        }
+      }
+    },
+    "/jderest/v2/dataservice/table/F41021": {
+      "get": {
+        "tags": [
+          "Fulfillment"
+        ],
+        "summary": "Check item inventory by branch and location",
+        "description": "Query F41021 Item Location for an item across branches. Useful aliases include MCU, LOCN, LOTN, ITM, LITM, PQOH, HCOM, PCOM, PBCK, QWBO, QTTR, and QTO1. Treat raw quantity buckets as evidence, not a guaranteed available-to-promise calculation, and explain that configured availability rules may differ.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/environment"
+          },
+          {
+            "$ref": "#/components/parameters/role"
+          },
+          {
+            "$ref": "#/components/parameters/device"
+          },
+          {
+            "$ref": "#/components/parameters/fields"
+          },
+          {
+            "$ref": "#/components/parameters/filters"
+          },
+          {
+            "$ref": "#/components/parameters/filterType"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          },
+          {
+            "$ref": "#/components/parameters/outputType"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/queryResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        }
+      }
+    },
+    "/jderest/v2/dataservice/table/F4311": {
+      "get": {
+        "tags": [
+          "Fulfillment"
+        ],
+        "summary": "Find inbound purchase order supply for an item",
+        "description": "Query F4311 Purchase Order Detail for inbound supply by item and branch. Useful aliases include KCOO, DOCO, DCTO, LNID, MCU, AN8, ITM, LITM, UORG, AREC, PREJ, PDDJ, NXTR, and LTTR. Report dates and statuses exactly as returned and do not claim receipt before it occurs.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/environment"
+          },
+          {
+            "$ref": "#/components/parameters/role"
+          },
+          {
+            "$ref": "#/components/parameters/device"
+          },
+          {
+            "$ref": "#/components/parameters/fields"
+          },
+          {
+            "$ref": "#/components/parameters/filters"
+          },
+          {
+            "$ref": "#/components/parameters/filterType"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          },
+          {
+            "$ref": "#/components/parameters/outputType"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/queryResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        }
+      }
+    },
+    "/jderest/v2/dataservice/table/F4101": {
+      "get": {
+        "tags": [
+          "Fulfillment"
+        ],
+        "summary": "Get item master identity and descriptions",
+        "description": "Query F4101 Item Master to resolve an item number and description. Useful aliases include ITM, LITM, AITM, DSC1, DSC2, SRTX, STKT, UOM1, and GLPT.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/environment"
+          },
+          {
+            "$ref": "#/components/parameters/role"
+          },
+          {
+            "$ref": "#/components/parameters/device"
+          },
+          {
+            "$ref": "#/components/parameters/fields"
+          },
+          {
+            "$ref": "#/components/parameters/filters"
+          },
+          {
+            "$ref": "#/components/parameters/filterType"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          },
+          {
+            "$ref": "#/components/parameters/outputType"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/queryResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        }
+      }
+    },
+    "/jderest/v2/dataservice/table/F0101": {
+      "get": {
+        "tags": [
+          "Fulfillment"
+        ],
+        "summary": "Resolve customer or supplier address-book details",
+        "description": "Query F0101 Address Book Master for a known address number. Useful aliases include AN8, ALKY, ALPH, DC, MCU, AT1, AC01, and AC02. Do not use sensitive tax or personal fields.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/environment"
+          },
+          {
+            "$ref": "#/components/parameters/role"
+          },
+          {
+            "$ref": "#/components/parameters/device"
+          },
+          {
+            "$ref": "#/components/parameters/fields"
+          },
+          {
+            "$ref": "#/components/parameters/filters"
+          },
+          {
+            "$ref": "#/components/parameters/filterType"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          },
+          {
+            "$ref": "#/components/parameters/outputType"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/queryResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        }
+      }
+    }
+  }
+}

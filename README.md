@@ -1,37 +1,81 @@
 # Private Agent Factory Agent Samples
 
-This repository is a catalog of self-contained agents that can be imported into
-Oracle AI Database Private Agent Factory. Each top-level agent folder contains
-the importable `.paf` archive, its Agent Builder flow specification,
-documentation, presentation material, and supporting assets.
+This repository is a source-first catalog of documented agents for Oracle AI Database Private Agent Factory. Human-reviewable workflow sources and supporting assets live in Git; password-protected `.paf` archives are generated, verified, and published by GitHub Actions.
+
+## Included samples
+
+| Sample | Connection context | Agent Memory behavior |
+| --- | --- | --- |
+| [JD Edwards Fulfillment Exception Agent](jd-edwards-fulfillment-exception-agent/) | Builder-managed JPS920 headers | None; grounded read-only analysis |
+| [JD Edwards Fulfillment Memory Agent](jd-edwards-fulfillment-memory-agent/) | Supplied through an explicit named profile | Explicit setup and cross-session recall |
+| [JD Edwards Adaptive Fulfillment Advisor](jd-edwards-adaptive-fulfillment-advisor/) | Learned when first needed | Implicit learning through ordinary work and corrections |
+| [JDE JPS920 Fulfillment Coach](jde-jps920-fulfillment-coach/) | Builder-managed JPS920 headers | Implicit incremental corrections with a user-facing audit section |
+
+The samples form a progression from a stateless shortage investigation to a realistic, end-user-oriented Agent Memory demonstration. All six JDE tools are read-only Simple Table Query operations over F4211, F4201, F41021, F4311, F4101, and F0101.
+
+## Source and release contract
+
+Each sample folder contains:
+
+| File | Purpose |
+| --- | --- |
+| `workflow.json` | Exact plaintext Agent Builder custom-flow payload extracted from the official export |
+| `archive-metadata.json` | Server export metadata retained for compatible rebuilds |
+| `sample.json` | Validated documentation and release manifest source |
+| `README.md` | Contributor-oriented explanation and setup notes |
+| `assets/agent-instructions.md` | Readable copy of the custom instructions |
+| `assets/*.json` | Sanitized OpenAPI or other distributable dependencies |
+| `slides/` | Optional presentation material |
+
+`workflow.json` is not presented as Open Agent Spec. It is the product's serialized visual custom-flow payload. These JDE flows currently cannot be exported as portable Open Agent Spec because their REST API Tools nodes are implemented by the Agent Builder runtime.
+
+Generated `.paf` files are ignored by Git and must never be committed. The release workflow packages every `workflow.json`, decrypts the new archive in memory, compares the recovered JSON and metadata with the source, and only then publishes it.
+
+## What the PAF contains
+
+The generated archives are complete workflow-only imports for Private Agent Factory 26.7. They include:
+
+- the visual graph, agent instructions, node settings, and workflow identifiers;
+- the original compatible archive metadata;
+- exactly one custom flow per sample.
+
+They intentionally exclude:
+
+- JDE or other application credentials;
+- REST API data-source definitions and environment-local source IDs;
+- LLM connection mappings;
+- Agent Memory configuration switches;
+- learned user memory records;
+- JDE sample data.
+
+After import, create the documented REST source, configure authentication, rebind the REST API Tools node, select a model, and enable Agent Memory where the sample requires it. Imported workflows remain unpublished until reviewed.
 
 ## Repository layout
 
 ```text
 agent-samples/
-├── <agent-name>/
-│   ├── <agent-name>.paf
-│   ├── agent-spec.json
+├── <agent-slug>/
+│   ├── workflow.json
 │   ├── archive-metadata.json
+│   ├── sample.json
 │   ├── README.md
-│   ├── slides/
-│   └── assets/
-├── docs/                       # Generated GitHub Pages catalog
+│   ├── assets/
+│   └── slides/
+├── docs/                         # Generated catalog and per-agent Pages
 ├── scripts/
-│   ├── generate_docs.py
+│   ├── build_release.py          # Build, decrypt, compare, checksum
+│   ├── generate_docs.py          # Validate manifests and generate Pages
 │   └── utilities/
-│       └── agent_sample.py
-└── .github/workflows/pages.yml
+│       └── agent_sample.py       # Extract, inspect, and package PAFs
+├── tests/
+└── .github/workflows/
+    ├── pages.yml
+    └── release.yml
 ```
 
-For this repository, `agent-spec.json` is the serialized Agent Builder custom
-flow stored in the archive under `flows/*.json`. It is also the source of the
-agent name, description, category, and version shown in the generated catalog.
+## Set up locally
 
-## Set up the utilities
-
-Python 3.10 or newer is required. The archive utility additionally uses the
-`cryptography` package.
+Python 3.10 or newer is required.
 
 ```bash
 python3 -m venv .venv
@@ -39,109 +83,130 @@ source .venv/bin/activate
 python -m pip install -r scripts/requirements.txt
 ```
 
-Passwords are prompted for securely by default. For automation, place the
-password in an environment variable and identify that variable with
-`--password-env`. Never commit a password or put one directly on a command
-line.
+Passwords are prompted for securely by the archive utility. Automation reads the passphrase from a named environment variable. Never commit it, print it, place it in `sample.json`, or put it directly on a command line.
 
-## Add an agent exported from the UI
+## Extract a UI export into reviewable source
 
-Export a single custom flow from **My Custom Flows** in Private Agent Factory,
-then run:
+Export one custom flow from **My Custom Flows**, then run:
 
 ```bash
 python scripts/utilities/agent_sample.py create-from-paf ~/Downloads/exported_flows_*.paf
 ```
 
-The utility decrypts and validates the archive, requires it to contain exactly
-one flow, and creates a top-level folder named from the flow. It retains the
-original `.paf`, writes the flow to `agent-spec.json`, preserves the export
-metadata, and creates starter README, slides, and assets directories.
+The command asks for the export passphrase, validates the envelope and ZIP, requires exactly one flow, and creates `workflow.json`, `archive-metadata.json`, and starter documentation directories. It does not copy the generated binary into the sample folder.
 
-For non-interactive use:
+For non-interactive automation:
 
 ```bash
-export PAF_PASSWORD='use-a-secret-store-in-real-automation'
+export PAF_PASSWORD_FROM_SECRET_STORE='...'
 python scripts/utilities/agent_sample.py create-from-paf exported.paf \
-  --password-env PAF_PASSWORD
+  --password-env PAF_PASSWORD_FROM_SECRET_STORE
 ```
 
-## Create an importable `.paf` programmatically
+Add and complete `sample.json` in the new folder before committing it. The documentation build intentionally fails when required documentation is absent.
 
-Start with a complete `agent-spec.json` containing the fields produced by an
-Agent Builder export: `name`, `description`, `category`, `icon`, `published`,
-`flowGraph`, and `data`. Then run:
+## Build and inspect archives
+
+Build all release assets with the common repository archive passphrase:
 
 ```bash
-python scripts/utilities/agent_sample.py create-from-spec path/to/agent-spec.json \
-  --application-version 26.4.0.0.0
+export PAF_ARCHIVE_PASSWORD='...'
+python scripts/build_release.py
 ```
 
-This creates the agent folder and a password-protected `.paf`. To rebuild the
-archive after editing an existing sample:
-
-```bash
-python scripts/utilities/agent_sample.py pack <agent-folder>
-```
-
-The archive format follows the Agent Builder import/export specification:
+The command writes only to ignored `dist/`:
 
 ```text
-metadata.json
-flows/
-  <agent_id>_<sanitized_name>.json
+dist/
+├── <agent-slug>.paf
+├── manifest.json
+├── SHA256SUMS
+└── RELEASE_NOTES.md
 ```
 
-The ZIP bytes are protected using PBKDF2-HMAC-SHA256 with 100,000 iterations,
-a random 16-byte salt, and a 32-byte key; AES-256-GCM uses a random 12-byte IV.
-The `.paf` stores Base64 of `salt || IV || ciphertext || 16-byte tag`.
-
-Important: the utility packages a flow payload; it does not translate an
-arbitrary agent definition into a valid Agent Builder graph. The `data` and
-`flowGraph` content must already be valid for the target Private Agent Factory
-release. Always test the generated archive in a non-production environment.
-
-## Inspect an archive
+To build a single sample:
 
 ```bash
-python scripts/utilities/agent_sample.py inspect path/to/agent.paf
+python scripts/utilities/agent_sample.py pack <agent-folder> \
+  --password-env PAF_ARCHIVE_PASSWORD
 ```
 
-The command validates authentication, ZIP integrity, metadata, and flow JSON,
-then prints only summary information. It does not print the flow graph or the
-password.
-
-## Generate the documentation site
+To validate and summarize a downloaded archive without exposing its graph or passphrase:
 
 ```bash
-python scripts/generate_docs.py
+python scripts/utilities/agent_sample.py inspect path/to/agent.paf \
+  --password-env PAF_ARCHIVE_PASSWORD
+```
+
+The PAF envelope uses PBKDF2-HMAC-SHA256 with 100,000 iterations, a random 16-byte salt, and a 32-byte key. AES-256-GCM uses a random 12-byte IV. The file stores Base64 of `salt || IV || ciphertext || tag`.
+
+The common passphrase provides format-compatible archive protection and import gating, not source confidentiality: the workflow source is intentionally reviewable in this repository. Distribute the passphrase through an approved secret-sharing channel.
+
+## GitHub Actions and releases
+
+Set the repository Actions secret once:
+
+```bash
+gh secret set PAF_ARCHIVE_PASSWORD
+```
+
+The command prompts for the value. Use the repository-specific common archive passphrase, never an Oracle account password.
+
+On every push to `main`, `.github/workflows/release.yml`:
+
+1. runs all tests and validates the documentation manifests;
+2. builds all encrypted archives;
+3. decrypts and compares every generated archive with its source;
+4. produces SHA-256 checksums and a machine-readable manifest;
+5. uploads the complete `dist/` directory as a workflow artifact;
+6. replaces the rolling prerelease tagged `latest`.
+
+Pushing a `v*` tag publishes a permanent versioned release using the same validated assets. Release notes never contain the archive passphrase.
+
+## GitHub Pages documentation
+
+`sample.json` is the documentation contract. It records:
+
+- title, summary, category, workflow version, and compatible PAF version;
+- connection ownership and Agent Memory behavior;
+- capabilities, prerequisites, tools, and safety controls;
+- import and binding steps;
+- realistic multi-session demo turns and expected outcomes;
+- validation date, environment, status, and notes;
+- source and release artifact names.
+
+Generate the site locally:
+
+```bash
+python scripts/generate_docs.py \
+  --repository-url https://github.com/oracle-agent-factory/agent-samples/tree/main \
+  --release-base-url https://github.com/oracle-agent-factory/agent-samples/releases/download/latest
 python -m http.server 8000 --directory docs
 ```
 
-Open `http://localhost:8000`. The generator discovers top-level folders that
-contain `agent-spec.json` and builds the catalog from their descriptions.
+Open `http://localhost:8000`. The site includes a catalog, a detailed page for every agent, a tested chat flow, direct release downloads, source links, and `agents.json` for machine-readable discovery.
 
-The GitHub Actions workflow regenerates the catalog and publishes `docs/` to
-GitHub Pages on every push to `main`. In the GitHub repository settings, set
-**Pages → Build and deployment → Source** to **GitHub Actions** once.
+The Pages workflow regenerates and deploys the site on every push to `main`. In repository settings, set **Pages → Build and deployment → Source** to **GitHub Actions** once.
 
-## Validate changes
+## Validate a contribution
 
 ```bash
 python -m unittest discover -s tests -v
 python scripts/generate_docs.py
+PAF_ARCHIVE_PASSWORD='a-local-test-secret' python scripts/build_release.py
 ```
 
-Before contributing an agent, verify that:
+Before contributing, confirm that:
 
-- the `.paf` imports into a compatible Private Agent Factory test environment;
-- `agent-spec.json` has an accurate, useful description;
-- the README lists prerequisites and example prompts;
-- no passwords, credentials, tokens, or environment secrets are committed;
-- slides and other assets do not contain customer-confidential information.
+- the workflow imports into a compatible non-production Private Agent Factory environment;
+- `sample.json` accurately documents prerequisites, tool scope, setup, demo turns, and validation;
+- `workflow.json` remains the exact payload intended for packaging;
+- environment-local dependencies can be rebound after import;
+- memory-enabled samples exclude learned user data;
+- OpenAPI and other assets are sanitized and redistribution-safe;
+- no passwords, credentials, cookies, tokens, or customer-confidential data are present;
+- no `.paf` file is tracked in Git.
 
-## Source specification
+## Format reference
 
-The archive structure and password-protection behavior are based on the
-internal [Agent Builder - Import / Export specification](https://confluence.oraclecorp.com/confluence/pages/viewpage.action?pageId=19943727175),
-including its password-based archive protection section.
+The archive layout and password envelope follow the internal Agent Builder import/export specification. The repository utility packages an existing valid Agent Builder graph; it does not translate an arbitrary agent definition into a custom flow.

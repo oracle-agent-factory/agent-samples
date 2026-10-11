@@ -10,3 +10,6 @@ venv/
 .env.*
 *.password
 
+# Generated release artifacts
+/dist/
+*.paf

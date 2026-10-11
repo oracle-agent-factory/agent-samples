@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "1.0",
+  "slug": "jd-edwards-adaptive-fulfillment-advisor",
+  "title": "JD Edwards Adaptive Fulfillment Advisor",
+  "summary": "Read-only JDE fulfillment advisor that learns connection details and operational corrections through ordinary work conversations.",
+  "category": "Supply Chain",
+  "version": "6",
+  "platform": {"product": "Oracle AI Database Private Agent Factory", "applicationVersion": "26.7.0.0.0"},
+  "connectionContext": "Environment, role, and device headers come from the current conversation or relevant prior context. Basic Auth remains environment-local.",
+  "memory": {"mode": "implicit", "crossThread": true, "description": "The user works normally and corrects the agent one rule at a time; relevant corrections are applied silently in a fresh chat."},
+  "capabilities": [
+    "Learns required connection context when it is first needed.",
+    "Adapts to incremental corrections about priority, inactive status, donor reserve, and approvals.",
+    "Uses relevant prior feedback naturally without asking users to manage memories.",
+    "Produces read-only, evidence-backed recovery recommendations."
+  ],
+  "prerequisites": [
+    "Private Agent Factory 26.7-compatible environment with Agent Memory and cross-thread sharing enabled.",
+    "Network access to JDE AIS plus an available LLM connection.",
+    "JDE Basic Auth user with read access to F4211, F4201, F41021, F4311, F4101, and F0101."
+  ],
+  "tools": [
+    {"name": "F4211", "method": "GET", "path": "/jderest/v2/dataservice/table/F4211", "purpose": "Find sales-order lines and fulfillment exceptions."},
+    {"name": "F4201", "method": "GET", "path": "/jderest/v2/dataservice/table/F4201", "purpose": "Get order header, customer, dates, and hold status."},
+    {"name": "F41021", "method": "GET", "path": "/jderest/v2/dataservice/table/F41021", "purpose": "Check item inventory by branch and location."},
+    {"name": "F4311", "method": "GET", "path": "/jderest/v2/dataservice/table/F4311", "purpose": "Find inbound purchase-order supply for an item."},
+    {"name": "F4101", "method": "GET", "path": "/jderest/v2/dataservice/table/F4101", "purpose": "Get item identity and descriptions."},
+    {"name": "F0101", "method": "GET", "path": "/jderest/v2/dataservice/table/F0101", "purpose": "Resolve customer or supplier address-book details."}
+  ],
+  "safetyControls": [
+    "The OpenAPI definition exposes GET operations only.",
+    "Last-status-900 lines are excluded after the user teaches that rule.",
+    "Donors must retain the learned 1,000-unit indicative balance.",
+    "JDE-changing actions require approval; every live response confirms no change was made."
+  ],
+  "setup": [
+    "Create a REST source from assets/jde-fulfillment-openapi.json, verify its AIS URL, and configure Basic Auth.",
+    "Download and import the release PAF, then rebind the REST API Tools node and select a model.",
+    "Enable Agent Memory and cross-thread sharing for the same user.",
+    "Delete any prior playground memories for the test user, then run both sessions."
+  ],
+  "demo": {
+    "sessions": [
+      {"title": "Session 1 — work normally and correct incrementally", "steps": [
+        {"speaker": "User", "text": "Can you check our backorders and tell me what we should tackle first?"},
+        {"speaker": "Expected agent", "text": "Ask only for the missing JDE environment, role, and device identifier."},
+        {"speaker": "User", "text": "Use JPS920 with the *ALL role and ops-fulfillment-demo as the device ID. Those are our normal connection settings for JDE orders, backorders, fulfillment, and inventory."},
+        {"speaker": "User", "text": "That is not how our team triages this. Start with the earliest requested line that is still active, not the largest-value order, and treat status 900 lines as inactive."},
+        {"speaker": "User", "text": "Also, never recommend cross-branch stock if the donor would fall below 1,000 units after the move. Show the arithmetic."},
+        {"speaker": "User", "text": "Anything that changes JDE needs my approval. Rework the recommendation and keep it read-only."}
+      ]},
+      {"title": "Session 2 — silent continuity", "steps": [
+        {"speaker": "User", "text": "Can you review today's backorders, tell me what we should tackle first, and give me the best cross-branch backup if its local branch cannot cover it? Show me the numbers and keep it aligned with how our team operates."}
+      ]}
+    ],
+    "expectedOutcomes": [
+      "The fresh chat does not ask again for relevant connection values.",
+      "Status-900 lines are excluded and the earliest requested active line is prioritized.",
+      "Donor-floor arithmetic is explicit and approval remains mandatory.",
+      "The response ends with: JDE changes made: none (read-only analysis)."
+    ]
+  },
+  "validation": {"date": "2026-10-11", "environment": "JPS920 sample data, clean memory then two chats", "status": "Passed live cross-session validation", "notes": ["Learned records are deliberately excluded from the workflow and release archive."]},
+  "artifacts": {"workflow": "workflow.json", "archiveMetadata": "archive-metadata.json", "instructions": "assets/agent-instructions.md", "openapi": "assets/jde-fulfillment-openapi.json", "releaseAsset": "jd-edwards-adaptive-fulfillment-advisor.paf"}
+}

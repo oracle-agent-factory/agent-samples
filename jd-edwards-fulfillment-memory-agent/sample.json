@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0",
+  "slug": "jd-edwards-fulfillment-memory-agent",
+  "title": "JD Edwards Fulfillment Memory Agent",
+  "summary": "Read-only JDE fulfillment analysis with an explicitly named connection and recovery profile recalled across chat sessions.",
+  "category": "Supply Chain",
+  "version": "6",
+  "platform": {"product": "Oracle AI Database Private Agent Factory", "applicationVersion": "26.7.0.0.0"},
+  "connectionContext": "The end user supplies environment, role, and device values; the agent recalls them from a named operating profile. Basic Auth remains environment-local.",
+  "memory": {"mode": "explicit", "crossThread": true, "description": "The user deliberately establishes a named profile, then the agent recalls its connection context and operating policy in a fresh chat."},
+  "capabilities": [
+    "Recalls a user-specific JDE execution context across sessions.",
+    "Recalls and enforces an explicitly named recovery policy.",
+    "Shows post-transfer donor-cushion arithmetic before recommending cross-branch stock.",
+    "Keeps every JDE-changing action behind explicit human approval."
+  ],
+  "prerequisites": [
+    "Private Agent Factory 26.7-compatible environment with Agent Memory and cross-thread sharing enabled.",
+    "Network access to JDE AIS plus an available LLM connection.",
+    "JDE Basic Auth user with read access to F4211, F4201, F41021, F4311, F4101, and F0101."
+  ],
+  "tools": [
+    {"name": "F4211", "method": "GET", "path": "/jderest/v2/dataservice/table/F4211", "purpose": "Find sales-order lines and fulfillment exceptions."},
+    {"name": "F4201", "method": "GET", "path": "/jderest/v2/dataservice/table/F4201", "purpose": "Get order header, customer, dates, and hold status."},
+    {"name": "F41021", "method": "GET", "path": "/jderest/v2/dataservice/table/F41021", "purpose": "Check item inventory by branch and location."},
+    {"name": "F4311", "method": "GET", "path": "/jderest/v2/dataservice/table/F4311", "purpose": "Find inbound purchase-order supply for an item."},
+    {"name": "F4101", "method": "GET", "path": "/jderest/v2/dataservice/table/F4101", "purpose": "Get item identity and descriptions."},
+    {"name": "F0101", "method": "GET", "path": "/jderest/v2/dataservice/table/F0101", "purpose": "Resolve customer or supplier address-book details."}
+  ],
+  "safetyControls": [
+    "The OpenAPI definition exposes GET operations only.",
+    "The 1,000-unit post-transfer donor floor is applied numerically.",
+    "Anything that could change JDE requires explicit human approval.",
+    "Learned memory records are user-specific runtime data and are never packaged."
+  ],
+  "setup": [
+    "Create a REST API source from assets/jde-fulfillment-openapi.json, verify the AIS URL, and configure Basic Auth.",
+    "Download and import the release PAF, then rebind its REST API Tools node and select a model.",
+    "Enable Agent Memory and cross-thread sharing for the same user.",
+    "Run both demo sessions as the same user, starting from clean memories."
+  ],
+  "demo": {
+    "sessions": [
+      {"title": "Session 1 — establish the named profile", "steps": [
+        {"speaker": "User", "text": "Hi, I'm taking over the North America fulfillment review. Let's call this the North America Fulfillment Standard. For this JDE connection, use environment JPS920, role *ALL, and device ops-fulfillment-demo. Please remember that for future chats. I'm only setting up today, so don't query JDE yet."},
+        {"speaker": "User", "text": "One more rule for that standard: a cross-branch candidate is eligible only when it addresses the earliest requested active line and leaves at least 1,000 units of indicative available balance in the donor branch after the proposed allocation. Anything that could change JDE needs explicit human approval. Please remember that too."}
+      ]},
+      {"title": "Session 2 — recall and apply", "steps": [
+        {"speaker": "User", "text": "Morning. Which JDE environment is saved in my North America Fulfillment Standard? Answer from memory only; do not query JDE."},
+        {"speaker": "User", "text": "What role and device identifier are saved for that same standard? Answer from memory only; do not query JDE."},
+        {"speaker": "User", "text": "Before we look at today's orders, remind me of the saved cross-branch eligibility rule and the approval control for that standard. Please do not query JDE yet."},
+        {"speaker": "User", "text": "Great—use that remembered standard to run today's fulfillment exception review. Find up to five backordered sales-order lines, determine which order deserves investigation first, and recommend the single best eligible cross-branch recovery action. Show the post-allocation cushion arithmetic and do not change JDE."}
+      ]}
+    ],
+    "expectedOutcomes": [
+      "The fresh chat recalls all connection values and policy constraints.",
+      "Donors below the remembered 1,000-unit floor are rejected with arithmetic.",
+      "The analysis makes no JDE changes."
+    ]
+  },
+  "validation": {"date": "2026-10-11", "environment": "JPS920 sample data, same user across two chats", "status": "Passed live cross-session validation", "notes": ["Agent Memory retrieval is user-specific and relevance-based."]},
+  "artifacts": {"workflow": "workflow.json", "archiveMetadata": "archive-metadata.json", "instructions": "assets/agent-instructions.md", "openapi": "assets/jde-fulfillment-openapi.json", "releaseAsset": "jd-edwards-fulfillment-memory-agent.paf"}
+}

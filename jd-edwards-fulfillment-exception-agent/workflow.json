@@ -1,0 +1,402 @@
+{
+  "workflowId": "5D66973D9AAB2B60E0638001000A3149",
+  "name": "JD Edwards Fulfillment Exception Agent",
+  "description": "Read-only JDE sales-order shortage diagnosis and approval-ready recovery recommendations using live EnterpriseOne data.",
+  "category": 1,
+  "icon": "workflow",
+  "published": true,
+  "flowGraph": true,
+  "data": {
+    "nodes": [
+      {
+        "data": {
+          "description": "Select from one of your configured LLMs an interact with it as an agent.",
+          "fieldOrder": [
+            "llmToUse",
+            "tools",
+            "subAgents",
+            "custom_instruction",
+            "agent_description",
+            "prompt",
+            "temperature"
+          ],
+          "icon": "bot",
+          "outputs": [
+            {
+              "id": "tool_output",
+              "label": "Message",
+              "outputTypes": [
+                "message"
+              ]
+            },
+            {
+              "id": "agent",
+              "label": "Agent",
+              "outputTypes": [
+                "agent"
+              ]
+            }
+          ],
+          "passInlineData": false,
+          "template": {
+            "agent_description": {
+              "componentProps": {
+                "disableWhenOutputConnected": null,
+                "icon": null,
+                "iconTitle": null,
+                "label": "Agent description",
+                "placeholder": null
+              },
+              "componentType": "inputText",
+              "display": true,
+              "displayCondition": null,
+              "dynamic": false,
+              "inputTypes": [
+                "message"
+              ],
+              "required": false,
+              "value": "Investigates JDE sales-order fulfillment exceptions and recommends evidence-backed recovery options without changing JDE.",
+              "valueType": "str"
+            },
+            "custom_instruction": {
+              "componentProps": {
+                "dependsOnValueKeys": null,
+                "disableWhenOutputConnected": null,
+                "hideWhenOutputConnected": null,
+                "label": "Custom instructions",
+                "placeholder": "",
+                "valueEndPoint": null
+              },
+              "componentType": "textArea",
+              "display": true,
+              "displayCondition": null,
+              "inputTypes": [
+                "message"
+              ],
+              "required": true,
+              "value": "You are the JD Edwards Sales Order Fulfillment Exception Agent, a read-only operations advisor for JD Edwards EnterpriseOne.\n\nYour job is to investigate sales-order fulfillment exceptions using the connected JDE REST tools, explain the evidence, and recommend an approval-ready recovery plan. You never modify JDE data and must never imply that you placed, released, transferred, rescheduled, or otherwise changed an order.\n\nData rules:\n\n- For every live-data question, call the relevant REST tool before answering. Never invent an order, item, customer, quantity, status, branch, or date.\n- On every REST tool call, set `jde-AIS-Auth-Environment` to `JPS920`, `jde-AIS-Auth-Role` to `*ALL`, and `jde-AIS-Auth-Device` to `paf-jde-agent`. These are HTTP header tool arguments, not query filters.\n- Use exact, bounded filters. Keep `$limit` at 50 or fewer unless the user explicitly asks for more. Request only fields needed for the investigation.\n- Use fully qualified JDE field names in `$field` and `$filter`, such as `F4211.DOCO`.\n- Treat spaces in fixed-width JDE values as padding and trim them when comparing or displaying values.\n- Preserve JDE dates as returned. If you interpret a Julian or other encoded date, label the interpretation and state any uncertainty.\n- Do not expose unrelated address-book, tax, credential, or personal data.\n- If a tool returns an authorization, validation, or connectivity error, report it plainly and stop relying on that result.\n\nInvestigation workflow:\n\n1. Identify the order using company (`KCOO`), order number (`DOCO`), and order type (`DCTO`). If the user gives only an order number, perform one bounded F4211 lookup and use the returned company and type. If the result is ambiguous, ask one concise clarification question.\n2. Query F4211 for line evidence. Useful fields include `KCOO`, `DOCO`, `DCTO`, `LNID`, `MCU`, `AN8`, `SHAN`, `ITM`, `LITM`, `DSC1`, `UORG`, `SOQS`, `SOBK`, `SOCN`, `NXTR`, `LTTR`, `TRDJ`, `DRQJ`, `PDDJ`, `UPRC`, and `AEXP`.\n3. Query F4201 for header context and holds. Match the exact order identity. Useful fields include `KCOO`, `DOCO`, `DCTO`, `AN8`, `SHAN`, `MCU`, `TRDJ`, `DRQJ`, `CNDJ`, `HOLD`, `NXTR`, and `LTTR`.\n4. For each affected item, query F41021 across relevant branches using `ITM` or `LITM`. Inspect only necessary inventory buckets such as `PQOH`, `HCOM`, `PCOM`, `PBCK`, `QWBO`, `QTTR`, and `QTO1`. Do not label a calculated value as ATP unless the returned fields and business rules are sufficient; otherwise call it an indicative available balance and show the calculation.\n5. Query F4311 for potential inbound supply for the item and branch. Use `AREC`, `PREJ`, `UORG`, `PDDJ`, `NXTR`, and `LTTR` as evidence. Do not call a purchase-order line open or available unless its quantities and statuses support that conclusion.\n6. Use F4101 to resolve item descriptions and F0101 to resolve customer or supplier names only when needed.\n7. If the user asks to find exceptions rather than supplying an order, start with a bounded F4211 search focused on backordered quantity (`SOBK GT 0`) or another explicitly requested status condition. Do not scan or dump an entire table.\n\nDecision guidance:\n\n- Distinguish ordered, shipped, backordered, and canceled quantities.\n- Check for header or line holds before recommending inventory movement.\n- Rank feasible recovery options: source from another branch, partial shipment, align with credible inbound purchase-order supply, reschedule, or customer escalation.\n- State constraints and tradeoffs for every option. Prefer evidence over generic advice.\n- A recommendation is advisory. Say exactly what a human should verify or approve in JDE before execution.\n\nRespond with these compact sections:\n\n1. Exception\n2. Evidence\n3. Recovery options\n4. Recommended next action\n5. Verification\n\nEnd every response that used live tools with: `JDE changes made: none (read-only analysis).`\n",
+              "valueType": "str"
+            },
+            "llmToUse": {
+              "componentProps": {
+                "dependsOnValueKeys": null,
+                "itemText": "label",
+                "itemValue": "value",
+                "label": "Select LLM to use",
+                "options": [
+                  {
+                    "label": "az-router (azure)",
+                    "value": "az-router"
+                  }
+                ],
+                "optionsEndPoint": {
+                  "url": "/agentFactory/v1/agentBuilderGetRegisteredLLMS"
+                },
+                "optionsToDisplayDependingOnValue": null
+              },
+              "componentType": "selectSingle",
+              "display": true,
+              "displayCondition": null,
+              "inputTypes": null,
+              "required": false,
+              "value": "az-router",
+              "valueType": "str"
+            },
+            "prompt": {
+              "componentProps": {
+                "dependsOnValueKeys": null,
+                "disableWhenOutputConnected": null,
+                "hideWhenOutputConnected": null,
+                "label": "Prompt",
+                "placeholder": "",
+                "valueEndPoint": null
+              },
+              "componentType": "textArea",
+              "display": true,
+              "displayCondition": null,
+              "inputTypes": [
+                "message"
+              ],
+              "required": true,
+              "value": "",
+              "valueType": "str"
+            },
+            "subAgents": {
+              "aggregationMode": "list",
+              "componentProps": {
+                "connectionsAllowed": 10,
+                "disableWhenOutputConnected": null,
+                "inlineValue": true,
+                "label": "Sub-agents"
+              },
+              "componentType": "label",
+              "connectionsAllowed": 10,
+              "deliveryMode": "inline",
+              "display": true,
+              "displayCondition": null,
+              "inputTypes": [
+                "agent"
+              ],
+              "normalizeSingleton": true,
+              "required": false,
+              "value": [],
+              "valueShape": "list",
+              "valueType": "list"
+            },
+            "temperature": {
+              "componentProps": {
+                "label": "Temperature",
+                "max": 2,
+                "min": 0,
+                "step": 0.01
+              },
+              "componentType": "slider",
+              "display": true,
+              "required": true,
+              "value": 0.01,
+              "valueType": "number"
+            },
+            "tools": {
+              "aggregationMode": "list",
+              "componentProps": {
+                "connectionsAllowed": 10,
+                "disableWhenOutputConnected": null,
+                "inlineValue": true,
+                "label": "Tools"
+              },
+              "componentType": "label",
+              "connectionsAllowed": 10,
+              "deliveryMode": "inline",
+              "display": true,
+              "displayCondition": null,
+              "inputTypes": [
+                "tool"
+              ],
+              "normalizeSingleton": true,
+              "required": false,
+              "value": [
+                "node-1789339741326-8a9c76fc-ab6c-4553-9206-8c667b3ae3f1"
+              ],
+              "valueShape": "list",
+              "valueType": "list"
+            }
+          },
+          "title": "Agent",
+          "type": "agentStep"
+        },
+        "dragging": false,
+        "id": "node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943",
+        "measured": {
+          "height": 800,
+          "width": 284
+        },
+        "position": {
+          "x": 533.1849132176235,
+          "y": 468.90269511891563
+        },
+        "selected": false,
+        "type": "flowGenericNode"
+      },
+      {
+        "data": {
+          "description": "Transforms a set of REST APIs into a toolset for the agent.",
+          "fieldOrder": [
+            "src_select"
+          ],
+          "icon": "tool-case",
+          "outputs": [
+            {
+              "id": "tools",
+              "label": "Tools",
+              "outputTypes": [
+                "tool"
+              ]
+            }
+          ],
+          "passInlineData": true,
+          "template": {
+            "src_select": {
+              "componentProps": {
+                "dependsOnValueKeys": null,
+                "itemText": "label",
+                "itemValue": "value",
+                "label": "Source selection",
+                "options": [
+                  {
+                    "label": "JD Edwards Fulfillment Intelligence v1.1",
+                    "value": 42
+                  }
+                ],
+                "optionsEndPoint": {
+                  "url": "/agentFactory/v1/tools/getSourcesSelection"
+                },
+                "optionsToDisplayDependingOnValue": null
+              },
+              "componentType": "selectSingle",
+              "display": true,
+              "displayCondition": null,
+              "inputTypes": null,
+              "required": false,
+              "value": 42,
+              "valueType": "str"
+            }
+          },
+          "title": "REST API tools",
+          "type": "restAPITools"
+        },
+        "dragging": false,
+        "id": "node-1789339741326-8a9c76fc-ab6c-4553-9206-8c667b3ae3f1",
+        "measured": {
+          "height": 247,
+          "width": 284
+        },
+        "position": {
+          "x": 110.04886936112555,
+          "y": 548.7513028494207
+        },
+        "selected": false,
+        "type": "flowGenericNode"
+      },
+      {
+        "data": {
+          "description": "Capture user message sent in chat.",
+          "fieldOrder": [],
+          "icon": "message-square",
+          "outputs": [
+            {
+              "id": "user_provided_input",
+              "label": "Message",
+              "outputTypes": [
+                "message"
+              ]
+            }
+          ],
+          "passInlineData": false,
+          "template": {},
+          "title": "Chat input",
+          "type": "chatInputComponent"
+        },
+        "dragging": false,
+        "id": "node-1789339747507-4c848550-2a3b-4662-897d-8b7baba14aa4",
+        "measured": {
+          "height": 141,
+          "width": 214
+        },
+        "position": {
+          "x": 116.46448566308746,
+          "y": 1066.0393252974307
+        },
+        "selected": false,
+        "type": "flowGenericNode"
+      },
+      {
+        "data": {
+          "description": "Send message to chat.",
+          "fieldOrder": [
+            "message"
+          ],
+          "icon": "message-square-share",
+          "outputs": [
+            {
+              "id": "output_message",
+              "label": "Message",
+              "outputTypes": [
+                "message"
+              ]
+            }
+          ],
+          "passInlineData": false,
+          "template": {
+            "message": {
+              "aggregationMode": "replace",
+              "componentProps": {
+                "connectionsAllowed": 1,
+                "disableWhenOutputConnected": null,
+                "inlineValue": false,
+                "label": "Message"
+              },
+              "componentType": "label",
+              "connectionsAllowed": 1,
+              "deliveryMode": "dataflow",
+              "display": true,
+              "displayCondition": null,
+              "inputTypes": [
+                "message"
+              ],
+              "normalizeSingleton": false,
+              "required": false,
+              "value": "",
+              "valueShape": "scalar",
+              "valueType": "str"
+            }
+          },
+          "title": "Chat output",
+          "type": "chatOutputComponent"
+        },
+        "id": "node-1789339749198-84d6cf13-4258-4757-b42a-9894ba7b6e1a",
+        "measured": {
+          "height": 185,
+          "width": 214
+        },
+        "position": {
+          "x": 979.6701157687652,
+          "y": 966.0235415405568
+        },
+        "type": "flowGenericNode"
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "sourceHandleId": "user_provided_input",
+          "targetHandleId": "prompt"
+        },
+        "hidden": false,
+        "id": "xy-edge__node-1789339747507-4c848550-2a3b-4662-897d-8b7baba14aa4user_provided_input-node-1789339747507-4c848550-2a3b-4662-897d-8b7baba14aa4-node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943prompt-node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943",
+        "source": "node-1789339747507-4c848550-2a3b-4662-897d-8b7baba14aa4",
+        "sourceHandle": "user_provided_input-node-1789339747507-4c848550-2a3b-4662-897d-8b7baba14aa4",
+        "target": "node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943",
+        "targetHandle": "prompt-node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943"
+      },
+      {
+        "data": {
+          "sourceHandleId": "tool_output",
+          "targetHandleId": "message"
+        },
+        "hidden": false,
+        "id": "xy-edge__node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943tool_output-node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943-node-1789339749198-84d6cf13-4258-4757-b42a-9894ba7b6e1amessage-node-1789339749198-84d6cf13-4258-4757-b42a-9894ba7b6e1a",
+        "source": "node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943",
+        "sourceHandle": "tool_output-node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943",
+        "target": "node-1789339749198-84d6cf13-4258-4757-b42a-9894ba7b6e1a",
+        "targetHandle": "message-node-1789339749198-84d6cf13-4258-4757-b42a-9894ba7b6e1a"
+      },
+      {
+        "data": {
+          "sourceHandleId": "tools",
+          "targetHandleId": "tools"
+        },
+        "hidden": false,
+        "id": "xy-edge__node-1789339741326-8a9c76fc-ab6c-4553-9206-8c667b3ae3f1tools-node-1789339741326-8a9c76fc-ab6c-4553-9206-8c667b3ae3f1-node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943tools-node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943",
+        "source": "node-1789339741326-8a9c76fc-ab6c-4553-9206-8c667b3ae3f1",
+        "sourceHandle": "tools-node-1789339741326-8a9c76fc-ab6c-4553-9206-8c667b3ae3f1",
+        "target": "node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943",
+        "targetHandle": "tools-node-1789339734498-34b8ca59-1179-4522-8bb5-fac29a34b943"
+      }
+    ],
+    "_workflowMetadata": {
+      "originWorkflowId": "5bca9781-a8f5-4af6-8f8c-d11385ea0c2f",
+      "version": 4,
+      "lastUpdatedOn": "2026-10-11T04:46:37.634612Z"
+    }
+  },
+  "toolsPythonScript": null,
+  "importFileType": null,
+  "originWorkflowId": "5bca9781-a8f5-4af6-8f8c-d11385ea0c2f",
+  "version": 4,
+  "lastUpdatedOn": "2026-10-11T04:46:37.634612Z",
+  "_workflowMetadata": {
+    "originWorkflowId": "5bca9781-a8f5-4af6-8f8c-d11385ea0c2f",
+    "version": 4,
+    "lastUpdatedOn": "2026-10-11T04:46:37.634612Z"
+  }
+}

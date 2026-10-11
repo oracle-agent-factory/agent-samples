@@ -33,6 +33,7 @@ jobs:
       - name: Generate catalog
         env:
           AGENT_SAMPLES_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }}
+          AGENT_SAMPLES_RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/latest
         run: python scripts/generate_docs.py
 
       - name: Configure GitHub Pages

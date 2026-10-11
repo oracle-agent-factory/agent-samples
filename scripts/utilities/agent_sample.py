@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create agent sample folders and password-protected PAF archives."""
+"""Extract reviewable agent sources and build password-protected PAF archives."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ except ImportError:  # pragma: no cover - exercised only in an unprepared enviro
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_APPLICATION_VERSION = "26.4.0.0.0"
+DEFAULT_APPLICATION_VERSION = "26.7.0.0.0"
 PBKDF2_ITERATIONS = 100_000
 KEY_BYTES = 32
 SALT_BYTES = 16
@@ -85,7 +85,7 @@ def _archive_name_component(value: Any, fallback: str) -> str:
     return cleaned or fallback
 
 
-def validate_flow(flow: Any, source: str = "agent-spec.json") -> dict[str, Any]:
+def validate_flow(flow: Any, source: str = "workflow.json") -> dict[str, Any]:
     if not isinstance(flow, dict):
         raise PafError(f"{source}: flow payload must be a JSON object")
 
@@ -96,9 +96,14 @@ def validate_flow(flow: Any, source: str = "agent-spec.json") -> dict[str, Any]:
     for field in ("name", "description"):
         if not isinstance(flow[field], str) or not flow[field].strip():
             raise PafError(f"{source}: '{field}' must be a non-empty string")
-    for field in ("category", "icon"):
-        if not isinstance(flow[field], str):
-            raise PafError(f"{source}: '{field}' must be a string")
+    category = flow["category"]
+    if not (
+        isinstance(category, str)
+        or (isinstance(category, int) and not isinstance(category, bool))
+    ):
+        raise PafError(f"{source}: 'category' must be a string or integer")
+    if not isinstance(flow["icon"], str):
+        raise PafError(f"{source}: 'icon' must be a string")
     for field in ("published", "flowGraph"):
         if not isinstance(flow[field], bool):
             raise PafError(f"{source}: '{field}' must be a boolean")
@@ -238,14 +243,21 @@ def build_metadata(
 
     if not application_version.strip():
         raise PafError("application version cannot be empty")
-    timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     return {
-        "version": application_version,
-        "application_version": application_version,
-        "export_timestamp": timestamp,
-        "included_resource_types": ["flows"],
-        "resource_count": flow_count,
-        "resource_counts": {"flows": flow_count},
+        "applicationVersion": application_version,
+        "exportedAt": timestamp,
+        "encrypted": True,
+        "contains": {
+            "customFlows": True,
+            "modelDetails": False,
+            "dbDataSources": False,
+            "selectAiDetails": False,
+            "mcpServers": False,
+            "restApiTools": False,
+        },
+        "count": flow_count,
+        "flowScope": "selected",
     }
 
 
@@ -266,7 +278,11 @@ def build_zip_bytes(
         )
         for index, flow in enumerate(flows, start=1):
             identifier = _archive_name_component(
-                flow.get("id") or flow.get("agent_id"), str(uuid.uuid4())
+                flow.get("id")
+                or flow.get("agent_id")
+                or flow.get("workflowId")
+                or flow.get("originWorkflowId"),
+                str(uuid.uuid4()),
             )
             name = _archive_name_component(flow.get("name"), f"flow_{index}")
             archive.writestr(
@@ -323,31 +339,21 @@ def _sample_readme(name: str, description: str, paf_name: str) -> str:
 
 {description}
 
-## Import into Private Agent Factory
+## Complete this source-first scaffold
 
-1. Sign in to the target Private Agent Factory environment.
-2. Open **My Custom Flows** and choose the import action.
-3. Upload `{paf_name}`.
-4. Enter the archive password supplied through the approved secret-sharing channel.
-5. Review the imported flow, configure environment-specific dependencies, and test it before publishing.
-
-Imported workflows are created unpublished. Do not store the archive password in this repository.
-
-## Prerequisites
-
-- Document required database objects, tools, MCP servers, REST services, credentials, and model access here.
-
-## Example prompts
-
-- Add representative prompts and expected outcomes here.
+1. Add a reviewed `sample.json` with prerequisites, tools, safety controls, setup, demo turns, expected outcomes, and validation evidence.
+2. Add only sanitized, distributable dependencies under `assets/`.
+3. Run the tests and documentation generator.
+4. Build the encrypted release asset with `python scripts/build_release.py`.
 
 ## Contents
 
-- `{paf_name}` — password-protected Agent Builder import archive
-- `agent-spec.json` — serialized custom-flow payload and catalog source
+- `workflow.json` — exact serialized Agent Builder custom-flow payload
 - `archive-metadata.json` — archive metadata retained for compatible rebuilds
 - `slides/` — presentation and demo material
 - `assets/` — supporting files safe to distribute with the sample
+
+The generated `{paf_name}` is published as a release asset and must not be committed.
 """
 
 
@@ -356,7 +362,6 @@ def _write_sample_folder(
     folder_name: str,
     flow: dict[str, Any],
     metadata: dict[str, Any],
-    paf_payload: bytes,
     overwrite: bool,
 ) -> Path:
     folder_slug = slugify(folder_name)
@@ -369,8 +374,7 @@ def _write_sample_folder(
     folder.mkdir(parents=True, exist_ok=True)
 
     paf_name = f"{folder_slug}.paf"
-    (folder / paf_name).write_bytes(paf_payload)
-    (folder / "agent-spec.json").write_text(
+    (folder / "workflow.json").write_text(
         json.dumps(flow, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     (folder / "archive-metadata.json").write_text(
@@ -413,7 +417,6 @@ def create_from_paf(args: argparse.Namespace) -> int:
         args.folder or flow["name"],
         flow,
         archive.metadata,
-        paf_path.read_bytes(),
         args.overwrite,
     )
     print(f"Created {folder}")
@@ -422,17 +425,13 @@ def create_from_paf(args: argparse.Namespace) -> int:
 
 def create_from_spec(args: argparse.Namespace) -> int:
     spec_path = args.agent_spec.resolve()
-    flow = validate_flow(_load_json_object(spec_path, "agent spec"), str(spec_path))
-    password = _password(args.password_env, confirm=True)
-    paf_payload, metadata = build_paf_bytes(
-        [flow], password, application_version=args.application_version
-    )
+    flow = validate_flow(_load_json_object(spec_path, "workflow"), str(spec_path))
+    metadata = build_metadata(args.application_version, 1)
     folder = _write_sample_folder(
         args.root,
         args.folder or flow["name"],
         flow,
         metadata,
-        paf_payload,
         args.overwrite,
     )
     print(f"Created {folder}")
@@ -443,8 +442,8 @@ def pack(args: argparse.Namespace) -> int:
     folder = args.agent_folder.resolve()
     if not folder.is_dir():
         raise PafError(f"agent folder does not exist: {folder}")
-    spec_path = folder / "agent-spec.json"
-    flow = validate_flow(_load_json_object(spec_path, "agent spec"), str(spec_path))
+    spec_path = folder / "workflow.json"
+    flow = validate_flow(_load_json_object(spec_path, "workflow"), str(spec_path))
     metadata_path = args.metadata or folder / "archive-metadata.json"
     metadata: dict[str, Any] | None = None
     if metadata_path.is_file():
@@ -457,7 +456,7 @@ def pack(args: argparse.Namespace) -> int:
         application_version=args.application_version,
         metadata=metadata,
     )
-    output = (args.output or folder / f"{slugify(flow['name'])}.paf").resolve()
+    output = (args.output or folder.parent / "dist" / f"{folder.name}.paf").resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(paf_payload)
     (folder / "archive-metadata.json").write_text(
@@ -521,7 +520,7 @@ def build_parser() -> argparse.ArgumentParser:
     from_paf.set_defaults(handler=create_from_paf)
 
     from_spec = subparsers.add_parser(
-        "create-from-spec", help="Create an agent folder and PAF from a flow spec."
+        "create-from-spec", help="Create a source-first folder from workflow JSON."
     )
     from_spec.add_argument("agent_spec", type=Path)
     from_spec.add_argument("--root", type=Path, default=REPOSITORY_ROOT)
@@ -530,11 +529,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--application-version", default=DEFAULT_APPLICATION_VERSION
     )
     from_spec.add_argument("--overwrite", action="store_true")
-    _add_password_option(from_spec)
     from_spec.set_defaults(handler=create_from_spec)
 
     pack_parser = subparsers.add_parser(
-        "pack", help="Rebuild a PAF from an existing agent folder."
+        "pack", help="Build a PAF from an existing source-first agent folder."
     )
     pack_parser.add_argument("agent_folder", type=Path)
     pack_parser.add_argument("--output", type=Path)
