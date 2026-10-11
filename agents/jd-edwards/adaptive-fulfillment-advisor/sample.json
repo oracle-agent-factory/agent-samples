@@ -1,6 +1,8 @@
 {
   "schemaVersion": "1.0",
   "slug": "jd-edwards-adaptive-fulfillment-advisor",
+  "application": {"slug": "jd-edwards", "name": "JD Edwards EnterpriseOne"},
+  "useCase": {"slug": "adaptive-fulfillment-advisor", "name": "Adaptive fulfillment advising"},
   "title": "JD Edwards Adaptive Fulfillment Advisor",
   "summary": "Read-only JDE fulfillment advisor that learns connection details and operational corrections through ordinary work conversations.",
   "category": "Supply Chain",

@@ -1,6 +1,8 @@
 {
   "schemaVersion": "1.0",
   "slug": "jd-edwards-fulfillment-exception-agent",
+  "application": {"slug": "jd-edwards", "name": "JD Edwards EnterpriseOne"},
+  "useCase": {"slug": "fulfillment-exception", "name": "Fulfillment exception management"},
   "title": "JD Edwards Fulfillment Exception Agent",
   "summary": "Read-only fulfillment exception analysis using live sales-order, inventory, inbound-supply, item, and address-book evidence.",
   "category": "Supply Chain",

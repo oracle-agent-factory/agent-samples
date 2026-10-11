@@ -1,6 +1,8 @@
 {
   "schemaVersion": "1.0",
   "slug": "jde-jps920-fulfillment-coach",
+  "application": {"slug": "jd-edwards", "name": "JD Edwards EnterpriseOne"},
+  "useCase": {"slug": "jps920-fulfillment-coach", "name": "JPS920 fulfillment coaching"},
   "title": "JDE JPS920 Fulfillment Coach",
   "summary": "End-user-oriented read-only fulfillment coach with builder-managed JPS920 context and implicit learning from incremental corrections.",
   "category": "Supply Chain",

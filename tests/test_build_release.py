@@ -14,8 +14,8 @@ class ReleaseBuilderTests(unittest.TestCase):
     def test_builds_and_round_trip_validates_release_archive(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
-            folder = root / "sample-agent"
-            folder.mkdir()
+            folder = root / "agents" / "sample-application" / "sample-use-case"
+            folder.mkdir(parents=True)
             flow = {
                 "workflowId": "sample-001",
                 "name": "Sample Agent",
@@ -35,7 +35,15 @@ class ReleaseBuilderTests(unittest.TestCase):
                 "flowScope": "selected",
             }
             sample = {
-                "slug": folder.name,
+                "slug": "sample-agent",
+                "application": {
+                    "slug": "sample-application",
+                    "name": "Sample Application",
+                },
+                "useCase": {
+                    "slug": "sample-use-case",
+                    "name": "Sample use case",
+                },
                 "artifacts": {
                     "workflow": "workflow.json",
                     "archiveMetadata": "archive-metadata.json",
@@ -53,6 +61,14 @@ class ReleaseBuilderTests(unittest.TestCase):
 
             self.assertEqual(flow, archive.flows[0][1])
             self.assertEqual(digest, manifest["archives"][0]["sha256"])
+            self.assertEqual(
+                "agents/sample-application/sample-use-case",
+                manifest["archives"][0]["sourcePath"],
+            )
+            self.assertEqual(
+                "Sample Application",
+                manifest["archives"][0]["application"]["name"],
+            )
             self.assertIn("sample-agent.paf", (output / "SHA256SUMS").read_text(encoding="utf-8"))
             self.assertTrue((output / "RELEASE_NOTES.md").is_file())
 

@@ -21,6 +21,7 @@ from scripts.utilities.agent_sample import (  # noqa: E402
     build_paf_bytes,
     decrypt_paf_bytes,
     parse_zip_bytes,
+    slugify,
     validate_flow,
 )
 
@@ -49,17 +50,37 @@ def build_release(root: Path, output: Path, password: str) -> dict[str, Any]:
             old.unlink()
 
     entries: list[dict[str, Any]] = []
+    agents_root = root / "agents"
     folders = sorted(
-        folder for folder in root.iterdir()
-        if folder.is_dir() and (folder / "sample.json").is_file()
-    )
+        use_case
+        for application in agents_root.iterdir()
+        if application.is_dir() and not application.name.startswith(".")
+        for use_case in application.iterdir()
+        if use_case.is_dir()
+        and not use_case.name.startswith(".")
+        and (use_case / "sample.json").is_file()
+    ) if agents_root.is_dir() else []
     if not folders:
-        raise PafError("no sample.json manifests were found")
+        raise PafError(f"no sample.json manifests were found under {agents_root}")
 
     for folder in folders:
         sample = _json(folder / "sample.json")
-        if sample.get("slug") != folder.name:
-            raise PafError(f"{folder}/sample.json: slug must match the folder name")
+        slug = sample.get("slug")
+        if not isinstance(slug, str) or not slug or slugify(slug) != slug:
+            raise PafError(f"{folder}/sample.json: slug must be a lowercase filename slug")
+        application = sample.get("application")
+        use_case = sample.get("useCase")
+        if not isinstance(application, dict) or not isinstance(use_case, dict):
+            raise PafError(f"{folder}/sample.json: application and useCase must be objects")
+        if application.get("slug") != folder.parent.name:
+            raise PafError(f"{folder}/sample.json: application.slug must match {folder.parent.name}")
+        if use_case.get("slug") != folder.name:
+            raise PafError(f"{folder}/sample.json: useCase.slug must match {folder.name}")
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (application.get("name"), use_case.get("name"))
+        ):
+            raise PafError(f"{folder}/sample.json: application.name and useCase.name are required")
         artifacts = sample.get("artifacts")
         if not isinstance(artifacts, dict):
             raise PafError(f"{folder}/sample.json: artifacts must be an object")
@@ -68,21 +89,30 @@ def build_release(root: Path, output: Path, password: str) -> dict[str, Any]:
         release_asset = artifacts.get("releaseAsset")
         if workflow_name != "workflow.json" or metadata_name != "archive-metadata.json":
             raise PafError(f"{folder}/sample.json: canonical workflow or metadata path is invalid")
-        if release_asset != f"{folder.name}.paf":
-            raise PafError(f"{folder}/sample.json: release asset must be {folder.name}.paf")
+        if release_asset != f"{slug}.paf":
+            raise PafError(f"{folder}/sample.json: release asset must be {slug}.paf")
 
         flow = validate_flow(_json(folder / workflow_name), str(folder / workflow_name))
         metadata = _json(folder / metadata_name)
         payload, used_metadata = build_paf_bytes([flow], password, metadata=metadata)
         archive = parse_zip_bytes(decrypt_paf_bytes(payload, password))
         if archive.metadata != used_metadata or len(archive.flows) != 1 or archive.flows[0][1] != flow:
-            raise PafError(f"{folder.name}: encrypted archive failed exact round-trip validation")
+            raise PafError(f"{slug}: encrypted archive failed exact round-trip validation")
 
         destination = output / release_asset
         destination.write_bytes(payload)
         digest = hashlib.sha256(payload).hexdigest()
         entries.append({
-            "slug": folder.name,
+            "slug": slug,
+            "application": {
+                "slug": application["slug"],
+                "name": application["name"].strip(),
+            },
+            "useCase": {
+                "slug": use_case["slug"],
+                "name": use_case["name"].strip(),
+            },
+            "sourcePath": f"agents/{application['slug']}/{use_case['slug']}",
             "name": flow["name"],
             "workflowId": flow.get("workflowId"),
             "workflowVersion": flow.get("version"),
@@ -122,7 +152,11 @@ def build_release(root: Path, output: Path, password: str) -> dict[str, Any]:
         "",
         "## Assets",
         "",
-        *[f"- `{entry['asset']}` — {entry['name']} (flow v{entry['workflowVersion']})" for entry in entries],
+        *[
+            f"- `{entry['asset']}` — {entry['application']['name']} / "
+            f"{entry['name']} (flow v{entry['workflowVersion']})"
+            for entry in entries
+        ],
         "",
         "Use `SHA256SUMS` to verify downloaded assets and `manifest.json` for machine-readable provenance.",
         "",

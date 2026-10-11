@@ -75,6 +75,7 @@ class PafArchiveTests(unittest.TestCase):
             args = argparse.Namespace(
                 agent_spec=spec,
                 root=root / "catalog",
+                application="Test Application",
                 folder=None,
                 application_version="26.4.0.0.0",
                 overwrite=False,
@@ -82,7 +83,12 @@ class PafArchiveTests(unittest.TestCase):
             )
             self.assertEqual(0, create_from_spec(args))
 
-            folder = root / "catalog" / "research-assistant"
+            folder = (
+                root
+                / "catalog"
+                / "test-application"
+                / "research-assistant"
+            )
             self.assertFalse((folder / "research-assistant.paf").exists())
             self.assertTrue((folder / "workflow.json").is_file())
             self.assertTrue((folder / "archive-metadata.json").is_file())

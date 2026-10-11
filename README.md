@@ -6,16 +6,16 @@ This repository is a source-first catalog of documented agents for Oracle AI Dat
 
 | Sample | Connection context | Agent Memory behavior |
 | --- | --- | --- |
-| [JD Edwards Fulfillment Exception Agent](jd-edwards-fulfillment-exception-agent/) | Builder-managed JPS920 headers | None; grounded read-only analysis |
-| [JD Edwards Fulfillment Memory Agent](jd-edwards-fulfillment-memory-agent/) | Supplied through an explicit named profile | Explicit setup and cross-session recall |
-| [JD Edwards Adaptive Fulfillment Advisor](jd-edwards-adaptive-fulfillment-advisor/) | Learned when first needed | Implicit learning through ordinary work and corrections |
-| [JDE JPS920 Fulfillment Coach](jde-jps920-fulfillment-coach/) | Builder-managed JPS920 headers | Implicit incremental corrections with a user-facing audit section |
+| [JD Edwards Fulfillment Exception Agent](agents/jd-edwards/fulfillment-exception/) | Builder-managed JPS920 headers | None; grounded read-only analysis |
+| [JD Edwards Fulfillment Memory Agent](agents/jd-edwards/fulfillment-memory/) | Supplied through an explicit named profile | Explicit setup and cross-session recall |
+| [JD Edwards Adaptive Fulfillment Advisor](agents/jd-edwards/adaptive-fulfillment-advisor/) | Learned when first needed | Implicit learning through ordinary work and corrections |
+| [JDE JPS920 Fulfillment Coach](agents/jd-edwards/jps920-fulfillment-coach/) | Builder-managed JPS920 headers | Implicit incremental corrections with a user-facing audit section |
 
 The samples form a progression from a stateless shortage investigation to a realistic, end-user-oriented Agent Memory demonstration. All six JDE tools are read-only Simple Table Query operations over F4211, F4201, F41021, F4311, F4101, and F0101.
 
 ## Source and release contract
 
-Each sample folder contains:
+Each use-case folder under `agents/<application>/<use-case>/` contains:
 
 | File | Purpose |
 | --- | --- |
@@ -54,13 +54,15 @@ After import, create the documented REST source, configure authentication, rebin
 
 ```text
 agent-samples/
-├── <agent-slug>/
-│   ├── workflow.json
-│   ├── archive-metadata.json
-│   ├── sample.json
-│   ├── README.md
-│   ├── assets/
-│   └── slides/
+├── agents/
+│   └── <application>/
+│       └── <use-case>/
+│           ├── workflow.json
+│           ├── archive-metadata.json
+│           ├── sample.json
+│           ├── README.md
+│           ├── assets/
+│           └── slides/
 ├── docs/                         # Generated catalog and per-agent Pages
 ├── scripts/
 │   ├── build_release.py          # Build, decrypt, compare, checksum
@@ -90,16 +92,18 @@ Passwords are prompted for securely by the archive utility. Automation reads the
 Export one custom flow from **My Custom Flows**, then run:
 
 ```bash
-python scripts/utilities/agent_sample.py create-from-paf ~/Downloads/exported_flows_*.paf
+python scripts/utilities/agent_sample.py create-from-paf ~/Downloads/exported_flows_*.paf \
+  --application "JD Edwards"
 ```
 
-The command asks for the export passphrase, validates the envelope and ZIP, requires exactly one flow, and creates `workflow.json`, `archive-metadata.json`, and starter documentation directories. It does not copy the generated binary into the sample folder.
+The command asks for the export passphrase, validates the envelope and ZIP, requires exactly one flow, and creates a starter folder under `agents/<application>/<use-case>/` with `workflow.json`, `archive-metadata.json`, and documentation directories. It does not copy the generated binary into the sample folder.
 
 For non-interactive automation:
 
 ```bash
 export PAF_PASSWORD_FROM_SECRET_STORE='...'
 python scripts/utilities/agent_sample.py create-from-paf exported.paf \
+  --application "JD Edwards" \
   --password-env PAF_PASSWORD_FROM_SECRET_STORE
 ```
 
@@ -127,7 +131,7 @@ dist/
 To build a single sample:
 
 ```bash
-python scripts/utilities/agent_sample.py pack <agent-folder> \
+python scripts/utilities/agent_sample.py pack agents/<application>/<use-case> \
   --password-env PAF_ARCHIVE_PASSWORD
 ```
 
@@ -167,6 +171,7 @@ Pushing a `v*` tag publishes a permanent versioned release using the same valida
 
 `sample.json` is the documentation contract. It records:
 
+- application and use-case names and hierarchy slugs;
 - title, summary, category, workflow version, and compatible PAF version;
 - connection ownership and Agent Memory behavior;
 - capabilities, prerequisites, tools, and safety controls;
@@ -184,7 +189,7 @@ python scripts/generate_docs.py \
 python -m http.server 8000 --directory docs
 ```
 
-Open `http://localhost:8000`. The site includes a catalog, a detailed page for every agent, a tested chat flow, direct release downloads, source links, and `agents.json` for machine-readable discovery.
+Open `http://localhost:8000`. The site groups use cases by application and includes a detailed page for every agent, a tested chat flow, direct release downloads, source links, and `agents.json` for machine-readable discovery.
 
 The Pages workflow regenerates and validates the site on every push to `main` and always uploads `rendered-agent-pages-<commit>` as an Actions artifact. Public repositories deploy automatically.
 
@@ -201,6 +206,7 @@ PAF_ARCHIVE_PASSWORD='a-local-test-secret' python scripts/build_release.py
 Before contributing, confirm that:
 
 - the workflow imports into a compatible non-production Private Agent Factory environment;
+- the folder follows `agents/<application>/<use-case>/` and its manifest slugs match that hierarchy;
 - `sample.json` accurately documents prerequisites, tool scope, setup, demo turns, and validation;
 - `workflow.json` remains the exact payload intended for packaging;
 - environment-local dependencies can be rebound after import;

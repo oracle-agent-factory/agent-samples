@@ -359,21 +359,23 @@ The generated `{paf_name}` is published as a release asset and must not be commi
 
 def _write_sample_folder(
     root: Path,
+    application: str,
     folder_name: str,
     flow: dict[str, Any],
     metadata: dict[str, Any],
     overwrite: bool,
 ) -> Path:
+    application_slug = slugify(application)
     folder_slug = slugify(folder_name)
     root = root.resolve()
-    folder = root / folder_slug
+    folder = root / application_slug / folder_slug
     if folder.exists() and any(folder.iterdir()) and not overwrite:
         raise PafError(
             f"{folder} already exists and is not empty; use --overwrite to replace managed files"
         )
     folder.mkdir(parents=True, exist_ok=True)
 
-    paf_name = f"{folder_slug}.paf"
+    paf_name = f"{slugify(flow['name'])}.paf"
     (folder / "workflow.json").write_text(
         json.dumps(flow, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -414,6 +416,7 @@ def create_from_paf(args: argparse.Namespace) -> int:
     _, flow = archive.flows[0]
     folder = _write_sample_folder(
         args.root,
+        args.application,
         args.folder or flow["name"],
         flow,
         archive.metadata,
@@ -429,6 +432,7 @@ def create_from_spec(args: argparse.Namespace) -> int:
     metadata = build_metadata(args.application_version, 1)
     folder = _write_sample_folder(
         args.root,
+        args.application,
         args.folder or flow["name"],
         flow,
         metadata,
@@ -456,7 +460,26 @@ def pack(args: argparse.Namespace) -> int:
         application_version=args.application_version,
         metadata=metadata,
     )
-    output = (args.output or folder.parent / "dist" / f"{folder.name}.paf").resolve()
+    release_asset = f"{slugify(flow['name'])}.paf"
+    manifest_path = folder / "sample.json"
+    if manifest_path.is_file():
+        manifest = _load_json_object(manifest_path, "sample manifest")
+        artifacts = manifest.get("artifacts")
+        if not isinstance(artifacts, dict):
+            raise PafError(f"{manifest_path}: artifacts must be an object")
+        release_asset = artifacts.get("releaseAsset")
+        if (
+            not isinstance(release_asset, str)
+            or Path(release_asset).name != release_asset
+            or not release_asset.endswith(".paf")
+        ):
+            raise PafError(f"{manifest_path}: artifacts.releaseAsset must be a PAF filename")
+    repository_root = (
+        folder.parents[2]
+        if folder.parent.parent.name == "agents"
+        else folder.parent
+    )
+    output = (args.output or repository_root / "dist" / release_asset).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(paf_payload)
     (folder / "archive-metadata.json").write_text(
@@ -513,7 +536,12 @@ def build_parser() -> argparse.ArgumentParser:
         "create-from-paf", help="Create an agent folder from a single-flow UI export."
     )
     from_paf.add_argument("paf", type=Path)
-    from_paf.add_argument("--root", type=Path, default=REPOSITORY_ROOT)
+    from_paf.add_argument("--root", type=Path, default=REPOSITORY_ROOT / "agents")
+    from_paf.add_argument(
+        "--application",
+        required=True,
+        help="Application name used to create the parent folder.",
+    )
     from_paf.add_argument("--folder", help="Override the generated folder name.")
     from_paf.add_argument("--overwrite", action="store_true")
     _add_password_option(from_paf)
@@ -523,7 +551,12 @@ def build_parser() -> argparse.ArgumentParser:
         "create-from-spec", help="Create a source-first folder from workflow JSON."
     )
     from_spec.add_argument("agent_spec", type=Path)
-    from_spec.add_argument("--root", type=Path, default=REPOSITORY_ROOT)
+    from_spec.add_argument("--root", type=Path, default=REPOSITORY_ROOT / "agents")
+    from_spec.add_argument(
+        "--application",
+        required=True,
+        help="Application name used to create the parent folder.",
+    )
     from_spec.add_argument("--folder", help="Override the generated folder name.")
     from_spec.add_argument(
         "--application-version", default=DEFAULT_APPLICATION_VERSION
